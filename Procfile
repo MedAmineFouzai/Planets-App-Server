@@ -1,1 +1,1 @@
-web: ./target/release/Planets-App-Server
+web: ./target/release/server
