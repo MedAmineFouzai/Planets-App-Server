@@ -1,0 +1,21 @@
+[package]
+name = "server"
+version = "0.1.0"
+authors = ["MedAmineFouzai <54685665+MedAmineFouzai@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "3"
+isahc = "0.9"
+serde = "1.0.117"
+serde_json = "1.0.59"
+mongodb = "1.1.1"
+redis = "0.17.0"
+jsonwebtoken = "7.2.0"
+
+
+
+
+
