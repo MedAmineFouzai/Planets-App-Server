@@ -14,7 +14,7 @@ impl User {
 
     pub async  fn login(&self,email:&str,password:&str)->Result<Cursor,Error>{
 
-        // self.collection.find(doc!{},None).await?
+     
         
         Ok(
             self.collection.find(
