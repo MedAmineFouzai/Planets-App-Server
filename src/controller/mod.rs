@@ -34,3 +34,14 @@ pub async fn search(req:HttpRequest,query:web::Path<String>)-> impl Responder{
     
 
 }
+
+
+
+#[post("/login")]
+pub async fn login(
+    app_data: web::Data<crate::AppState>
+    )-> impl Responder{
+HttpResponse::new(StatusCode::OK)
+}
+
+
