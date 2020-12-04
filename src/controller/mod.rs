@@ -1,47 +1,132 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, get,web};
-use isahc::prelude::*;
-const TOKEN:&str="1uLQHB7NKvy508EBLSfDXs-f54JX8FR-JcxE904OE54";
+use mongodb::{Collection, error::Error, results::InsertOneResult};
+use bson::{Document, doc, oid::ObjectId};
 
-#[get("/plants")]
-pub async fn plants(req:HttpRequest)-> impl Responder{
-    
-    match isahc::get(format!("https://trefle.io/api/v1/plants?token={}",TOKEN)){
-        Ok(mut response)=>{
-            response.text().ok().unwrap()
-        }
-        Err(e)=>{
-            e.to_string()
-        }
+#[derive(Debug,Clone)]
+pub struct UserModel{
 
-    }
-    
-
+    collection:Collection,
 }
 
-#[get("/search/{query}")]
-pub async fn search(req:HttpRequest,query:web::Path<String>)-> impl Responder{
-    
-    match isahc::get(format!("https://trefle.io/api/v1/plants?token={}&q={}",TOKEN,query)){
+impl UserModel {
+
+    pub fn new(collection:Collection)->UserModel {
+        UserModel{collection}
+    }
+
+    pub async  fn login(&self,email:&str,password:&str)->Result<Option<Document>,Error>{
+
+        // self.collection.find(doc!{},None).await?
         
-        Ok(mut response)=>{
-            response.text().ok().unwrap()
-        }
-        Err(e)=>{
-            e.to_string()
-        }
+        Ok(
+            self.collection.find_one(
+                doc!{
+                            "email":email,
+                            "password":password
+                    },None).unwrap()
+        )
 
     }
+    pub async fn signup(&self,username:&str,email:&str,password:&str)->Result<InsertOneResult,Error>{
+
+        Ok(
+            self.collection.insert_one(
+                doc!{
+                            "username":username,
+                            "email":email,
+                            "password":password,
+                            "favorites":[]
+                    },None).unwrap()
+        )
+
+    }
+
+    pub async fn delete_account(&self,user_id:&str)->Result<Option<Document>,Error>{
+
+        Ok(
+            self.collection.find_one_and_delete(
+                doc!{
+                    "_id":ObjectId::with_string(user_id).unwrap()
+                        },None
+                    ).unwrap()
     
+        )
+
+    }
+
+    pub async fn update_account(&self,user_id:&str,username:&str,email:&str)->Result<Option<Document>,Error>{
+        
+        Ok(
+        
+        self.collection.find_one_and_update(doc!{
+            "_id":ObjectId::with_string(user_id).unwrap()
+        },doc!{
+          "$set":{
+              "username":username,
+              "email":email
+          }  
+        },None).unwrap()
+
+    )
+    }
+
+    pub async fn update_password(&self,user_id:&str,password:&str)->Result<Option<Document>,Error>{
+        
+        Ok(
+        
+        self.collection.find_one_and_update(doc!{
+            "_id":ObjectId::with_string(user_id).unwrap()
+        },doc!{
+          "$set":{
+              "password":password,
+       
+          }  
+        },None).unwrap()
+
+    )
+    }
+
+
+
+    pub async fn add_favorite(&self,user_id:&str,post_id:&str)->Result<Option<Document>,Error>{
+        Ok(
+        self.collection.find_one_and_update(doc!{
+            "_id":ObjectId::with_string(user_id).unwrap()
+        },doc!{
+          "$push":{
+              "favorites":post_id
+          }  
+        },None).unwrap()
+    )
+    }
+   
+
+    pub async fn delete_favorite(&self,user_id:&str,post_id:&str)->Result<Option<Document>,Error>{
+
+
+        Ok(
+
+        self.collection.find_one_and_update(doc!{
+            "_id":ObjectId::with_string(user_id).unwrap()
+        },doc!{
+            "$pull":{
+                "favorites":post_id
+            }
+        },None).unwrap()
+    )
+    }
+    pub async fn verfiy_user(&self,username:&str,email:&str)->Result<Option<Document>,Error>{
+
+
+        Ok(
+
+        self.collection.find_one(doc!{
+            "username":username,
+            "email":email
+        },None).unwrap()
+    )
+    }
 
 }
 
-
-
-#[post("/login")]
-pub async fn login(
-    app_data: web::Data<crate::AppState>
-    )-> impl Responder{
-HttpResponse::new(StatusCode::OK)
-}
 
 
