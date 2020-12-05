@@ -1,6 +1,4 @@
-use actix_web::{HttpRequest,HttpResponse, Responder, http::StatusCode, get, post,delete,put, web::Json, web};
-
-
+use actix_web::{HttpRequest,HttpResponse, Responder, get, post,delete,put, web::Json, web};
 use bson::Bson;
 use serde::{Deserialize,Serialize};
 extern crate  jsonwebtoken as jwt;
@@ -10,57 +8,78 @@ const TOKEN:&str="1uLQHB7NKvy508EBLSfDXs-f54JX8FR-JcxE904OE54";
 
 
 #[derive(Debug,Serialize,Deserialize)]
-pub struct UserAccount {
+pub struct UserLoginModel {
+    email: String,
+    password:String,
+
+}
+
+
+#[derive(Debug,Serialize,Deserialize)]
+pub struct UserSignUpModel {
     username: String,
     email: String,
     password:String,
 
 }
+
+
+#[derive(Debug,Serialize,Deserialize)]
+pub struct UserPayload {
+    username: String,
+    email: String,
+}
+
+
+
 #[derive(Debug,Serialize,Deserialize)]
 pub struct UserID {
-   user_id:String
+   id:String
 }
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct UserAccountUpdate {
-    user_id:String,
+    id:String,
     username:String,
     email: String,
  
-    
 }
+
 #[derive(Debug,Serialize,Deserialize)]
 pub struct UserPasswordUpdate {
-    user_id:String,
+    id:String,
     old_password:String,
     new_password: String,
- 
-    
+     
 }
+
+
+#[derive(Debug,Serialize,Deserialize)]
+pub struct UserObject {
+    id:String,
+    username:String,
+    email: String,
+    token:String,
+    favourites:Vec<Bson>
+}
+
+
 #[derive(Debug,Serialize,Deserialize)]
 pub struct Favorite {
-    user_id:String,
+    id:String,
     post_id:String
  
 }
 
-#[derive(Debug,Serialize, Deserialize)]
-struct Token {
-    token: String,
-}
-
 
 #[get("/plants")]
-pub async fn plants(
-
-)-> impl Responder{
+pub async fn plants()-> impl Responder{
     
     match isahc::get(format!("https://trefle.io/api/v1/plants?token={}",TOKEN)){
        
         Ok(mut response)=>{
-     
+    
             response.text().ok().unwrap()
-     
         }
         Err(e)=>{
 
@@ -71,88 +90,106 @@ pub async fn plants(
 }
 
 
+
+#[get("/getPlant")]
+pub async fn get_plant(id:web::Path<String>)-> impl Responder{
+    
+    match isahc::get(format!("https://trefle.io/api/v1/plants/{}?token={}",id,TOKEN)){
+       
+        Ok(mut response)=>{
+    
+            response.text().ok().unwrap()
+            
+        }
+        Err(e)=>{
+
+            e.to_string()
+        
+        }
+    }           
+}
+
+
+
 #[get("/search/{query}")]
 pub async fn search(query:web::Path<String>)-> impl Responder{
     
-    match isahc::get(format!("https://trefle.io/api/v1/plants?token={}&q={}",TOKEN,query)){
+    match isahc::get(format!("https://trefle.io/api/v1/plants/search?token={}&q={}",TOKEN,query)){
         
         Ok(mut response)=>{
 
             response.text().ok().unwrap()
-
         }
         Err(e)=>{
 
             e.to_string()
 
         }
-
     }
-
 }
 
 
 #[post("/login")]
 pub async fn login(
-    app_data: web::Data<crate::AppState>,
-    user_data:Json<UserAccount>
-    )-> impl Responder{
+app_data: web::Data<crate::AppState>,
+user_data:Json<UserLoginModel>
+)-> impl Responder{
 
         match app_data.models_container.user.login(&user_data.email, &user_data.password).await{
             Ok(user)=>{
-
-                let payload = UserAccount{
-                    username: user.unwrap().get("username").and_then(Bson::as_str).unwrap().to_string(),
+                let  data=user.unwrap();
+                let payload = UserPayload{
+                    username:data.get_str("username").unwrap().to_string(),
                     email:user_data.email.to_owned(),
-                    password:"".to_owned()
                 };
                 
             let token=encode(&Header::default(),&payload,&EncodingKey::from_secret("secret".as_ref())).unwrap();
-            HttpResponse::Ok().json(Token{token:token})  
+            HttpResponse::Ok().json(UserObject{
+                id:data.get_object_id("_id").unwrap().to_string(),
+                username:data.get_str("username").unwrap().to_string(),
+                email:data.get_str("email").unwrap().to_string(),
+                token:token,
+                favourites:data.get_array("favourites").unwrap().to_vec()
+            })  
                 
             }
             Err(e)=>{
                 println!("Error:{}",e);
                 HttpResponse::Ok().body("Error Occurred")
-
             }
         }
-        
-        
-
-
 }
 
 
 
 #[post("/signup")]
 pub async fn signup(
-    
     app_data: web::Data<crate::AppState>,
-    user_data:Json<UserAccount>
+    user_data:Json<UserSignUpModel>
     )-> impl Responder{
 
-  
     match app_data.models_container.user.signup(&user_data.username, &user_data.email, &user_data.password).await{
-            Ok(result)=>{
-
+            Ok(_inserted_user)=>{
               match app_data.models_container.user.login(&user_data.email, &user_data.password).await{
                   Ok(user)=>{
-
-                    let payload = UserAccount{
-                        username:user_data.username.to_owned(),
+                    let data=user.unwrap();
+                    let payload = UserPayload{
+                        username:data.get_str("username").unwrap().to_string(),
                         email:user_data.email.to_owned(),
-                        password:"".to_owned()
                     };
                      let token=encode(&Header::default(),&payload,&EncodingKey::from_secret("secret".as_ref())).unwrap();
 
-                      println!("user object:{:?}",user.unwrap().to_string());
-
-                      HttpResponse::Ok().json(Token{token:token})
+                     HttpResponse::Ok().json(UserObject{
+                        id:data.get_object_id("_id").unwrap().to_string(),
+                        username:data.get_str("username").unwrap().to_string(),
+                        email:data.get_str("email").unwrap().to_string(),
+                        token:token,
+                        favourites:data.get_array("favourites").unwrap().to_vec()
+                    })  
                   }
                   Err(e)=>{
                     println!("Error:{}",e);
-                    HttpResponse::Ok().body("Error Occurred")
+                    HttpResponse::Ok().body("Error Occurred While Loging The User")
 
                   }
               }
@@ -175,34 +212,41 @@ pub async fn delete_account(
     )-> impl Responder{
 
         let basic_auth_header = req.headers().get("Authorization");
-        let decoded_token= decode::<UserAccount>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
+        let decoded_token= decode::<UserPayload>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
         match decoded_token {
             Ok(token)=>{
                 match app_data.models_container.user.verfiy_user(&token.claims.username,&token.claims.email).await{
-                    Ok(user_data)=>{
-                        println!("user_data:{:?}",user_data.unwrap());
+                    Ok(_user_data)=>{
                         
-                         match app_data.models_container.user.delete_account(&user_id.user_id).await{
+                         match app_data.models_container.user.delete_account(&user_id.id).await{
 
                          Ok(user)=>{
-                                 user.unwrap().to_string()
+                            let data=user.unwrap();
+                            HttpResponse::Ok().json(UserObject{
+                                id:data.get_object_id("_id").unwrap().to_string(),
+                                username:data.get_str("username").unwrap().to_string(),
+                                email:data.get_str("email").unwrap().to_string(),
+                                token:"".to_owned(),
+                                favourites:data.get_array("favourites").unwrap().to_vec()
+                            }) 
                             },
                          Err(e)=>{
                             println!("Error :{}",e.to_string());
-                            "User Not Found".to_string()
+                            HttpResponse::Ok().body("User Not Found")
+
                         }
                         }
                     }
                     
                     Err(e)=>{
                         println!("Error :{}",e.to_string());
-                        "User Not Allowed".to_string()
+                        HttpResponse::Ok().body("User Not Allowed")
                     }
                 }
             }
             Err(e)=>{
                 println!("Error :{}",e.to_string());
-                "User Not Authorized".to_string()
+                HttpResponse::Ok().body("User Not Authorized")
             }
         }
 
@@ -221,34 +265,48 @@ pub async fn update_account(
     )-> impl Responder{
 
         let basic_auth_header = req.headers().get("Authorization");
-        let decoded_token= decode::<UserAccount>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
+        let decoded_token= decode::<UserPayload>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
         match decoded_token {
             Ok(token)=>{
                 match app_data.models_container.user.verfiy_user(&token.claims.username,&token.claims.email).await{
                     Ok(user)=>{
                         println!("user_data:{:?}",user.unwrap());
                         
-                         match app_data.models_container.user.update_account(&user_data.user_id,&user_data.username,&user_data.email).await{
+                         match app_data.models_container.user.update_account(&user_data.id,&user_data.username,&user_data.email).await{
+                        
+                         Ok(_user)=>{
+                            let user=app_data.models_container.user.verfiy_user(&user_data.username, &user_data.email).await.ok().unwrap();
+                            let data=user.unwrap();
+                            let payload = UserPayload{
+                                username:data.get_str("username").unwrap().to_string(),
+                                email:data.get_str("email").unwrap().to_string(),
+                            };
+                            let token=encode(&Header::default(),&payload,&EncodingKey::from_secret("secret".as_ref())).unwrap();
 
-                         Ok(user)=>{
-                                 user.unwrap().to_string()
+                            HttpResponse::Ok().json(UserObject{
+                                id:data.get_object_id("_id").unwrap().to_string(),
+                                username:data.get_str("username").unwrap().to_string(),
+                                email:data.get_str("email").unwrap().to_string(),
+                                token:token,
+                                favourites:data.get_array("favourites").unwrap().to_vec()
+                            }) 
                             },
                          Err(e)=>{
                             println!("Error :{}",e.to_string());
-                            "User Not Found".to_string()
+                            HttpResponse::Ok().body("User Not Found")
                         }
                         }
                     }
                     
                     Err(e)=>{
                         println!("Error :{}",e.to_string());
-                        "User Not Allowed".to_string()
+                        HttpResponse::Ok().body("User Not Allowed")
                     }
                 }
             }
             Err(e)=>{
                 println!("Error :{}",e.to_string());
-                "User Not Authorized".to_string()
+                HttpResponse::Ok().body("User Not Authorized")
             }
         }
 
@@ -267,38 +325,48 @@ pub async fn update_password(
         )-> impl Responder{
     
             let basic_auth_header = req.headers().get("Authorization");
-            let decoded_token= decode::<UserAccount>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
+            let decoded_token= decode::<UserPayload>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
             match decoded_token {
                 Ok(token)=>{
                     match app_data.models_container.user.verfiy_user(&token.claims.username,&token.claims.email).await{
                         Ok(user)=>{
-                            
-                            if user.unwrap().get("password").and_then(Bson::as_str).unwrap().to_string().eq(&user_data.old_password){
-                                match app_data.models_container.user.update_password(&user_data.user_id,&user_data.new_password).await{
+                            let data=user.unwrap();
+                            if data.get_str("password").unwrap().to_string().eq(&user_data.old_password){
+                                match app_data.models_container.user.update_password(&user_data.id,&user_data.new_password).await{
     
                                     Ok(user)=>{
-                                            user.unwrap().to_string()
+                                        let data=user.unwrap();
+                                        HttpResponse::Ok().json(UserObject{
+                                            id:data.get_object_id("_id").unwrap().to_string(),
+                                            username:data.get_str("username").unwrap().to_string(),
+                                            email:data.get_str("email").unwrap().to_string(),
+                                            token:"".to_owned(),
+                                            favourites:data.get_array("favourites").unwrap().to_vec()
+                                        }) 
                                        },
                                     Err(e)=>{
                                        println!("Error :{}",e.to_string());
-                                       "User Not Found".to_string()
+                                  
+                                       HttpResponse::Ok().body("User Not Found")
                                    }
                                    }
                             }else{
-                                "User Not Allowed".to_string()
+
+                                HttpResponse::Ok().body("Password incorrect")
+
                             }
-                            
+
                         }
-                        
+    
                         Err(e)=>{
                             println!("Error :{}",e.to_string());
-                            "User Not Allowed".to_string()
+                            HttpResponse::Ok().body("User Not Allowed")
                         }
                     }
                 }
                 Err(e)=>{
                     println!("Error :{}",e.to_string());
-                    "User Not Authorized".to_string()
+                    HttpResponse::Ok().body("User Not Authorized")
                 }
             }
     
@@ -308,7 +376,7 @@ pub async fn update_password(
 
 
 
-        
+      
 #[post("/addFavorite")]
 pub async fn add_favorite(
         req:HttpRequest,
@@ -318,18 +386,29 @@ pub async fn add_favorite(
         )-> impl Responder{
     
             let basic_auth_header = req.headers().get("Authorization");
-            let decoded_token= decode::<UserAccount>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
+            let decoded_token= decode::<UserPayload>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
             match decoded_token {
                 Ok(token)=>{
                     match app_data.models_container.user.verfiy_user(&token.claims.username,&token.claims.email).await{
                         Ok(user)=>{
-                            match app_data.models_container.user.add_favorite(&user_data.user_id, &user_data.post_id).await{
+                            let data =user.unwrap();
+                            match app_data.models_container.user.add_favorite(&user_data.id, &user_data.post_id).await{
                                 Ok(user)=>{
-                                    user.unwrap().to_string()
+                                    let user=app_data.models_container.user.verfiy_user(&data.get_str("username").unwrap().to_string(),&data.get_str("email").unwrap().to_string()).await.ok().unwrap();
+                                    let data=user.unwrap();
+                                    HttpResponse::Ok().json(UserObject{
+                                            id:data.get_object_id("_id").unwrap().to_string(),
+                                            username:data.get_str("username").unwrap().to_string(),
+                                            email:data.get_str("email").unwrap().to_string(),
+                                            token:"".to_owned(),
+                                            favourites:data.get_array("favourites").unwrap().to_vec()
+                                        })
                                 }
                                 Err(e)=>{
                                     println!("Error :{}",e.to_string());
-                                    "Error Occured".to_string()
+                            
+
+                                    HttpResponse::Ok().body("Error Occured")
                                 }
                             }
 
@@ -337,13 +416,15 @@ pub async fn add_favorite(
                         
                         Err(e)=>{
                             println!("Error :{}",e.to_string());
-                            "User Not Allowed".to_string()
+                      
+                            HttpResponse::Ok().body("User Not Allowed")
                         }
                     }
                 }
                 Err(e)=>{
                     println!("Error :{}",e.to_string());
-                    "User Not Authorized".to_string()
+                
+                    HttpResponse::Ok().body("User Not Authorized")
                 }
             }
     
@@ -357,22 +438,32 @@ pub async fn delete_favorite(
         req:HttpRequest,
         app_data: web::Data<crate::AppState>,
         user_data:Json<Favorite>,
-        
         )-> impl Responder{
     
             let basic_auth_header = req.headers().get("Authorization");
-            let decoded_token= decode::<UserAccount>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
+            let decoded_token= decode::<UserPayload>(&basic_auth_header.unwrap().to_str().unwrap().replace("Bearer ", ""), &DecodingKey::from_secret("secret".as_ref()), &Validation {validate_exp:false, ..Default::default()});
             match decoded_token {
                 Ok(token)=>{
                     match app_data.models_container.user.verfiy_user(&token.claims.username,&token.claims.email).await{
                         Ok(user)=>{
-                            match app_data.models_container.user.delete_favorite(&user_data.user_id, &user_data.post_id).await{
+                            let data =user.unwrap();
+                            match app_data.models_container.user.delete_favorite(&user_data.id, &user_data.post_id).await{
                                 Ok(user)=>{
-                                    user.unwrap().to_string()
+                                    let user=app_data.models_container.user.verfiy_user(&data.get_str("username").unwrap().to_string(),&data.get_str("email").unwrap().to_string()).await.ok().unwrap();
+                                    let data=user.unwrap();
+                                    HttpResponse::Ok().json(UserObject{
+                                            id:data.get_object_id("_id").unwrap().to_string(),
+                                            username:data.get_str("username").unwrap().to_string(),
+                                            email:data.get_str("email").unwrap().to_string(),
+                                            token:"".to_owned(),
+                                            favourites:data.get_array("favourites").unwrap().to_vec()
+                                        })
                                 }
                                 Err(e)=>{
                                     println!("Error :{}",e.to_string());
-                                    "Error Occured".to_string()
+                            
+
+                                    HttpResponse::Ok().body("Error Occured")
                                 }
                             }
 
@@ -380,13 +471,15 @@ pub async fn delete_favorite(
                         
                         Err(e)=>{
                             println!("Error :{}",e.to_string());
-                            "User Not Allowed".to_string()
+                      
+                            HttpResponse::Ok().body("User Not Allowed")
                         }
                     }
                 }
                 Err(e)=>{
                     println!("Error :{}",e.to_string());
-                    "User Not Authorized".to_string()
+                
+                    HttpResponse::Ok().body("User Not Authorized")
                 }
             }
     
