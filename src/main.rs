@@ -1,6 +1,7 @@
 mod controller;
 mod model;
 use actix_web::{App,HttpServer};
+use actix_cors::Cors;
 use model::{UserModel};
 use mongodb::{options::ClientOptions, Client};
 pub struct ModelsContainer {
@@ -29,13 +30,20 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let models_container = ModelsContainer::new(
             
-
-            UserModel::new(user_collection.clone())
-           
-           
+            UserModel::new(user_collection.clone()) 
         );
+        let cors = Cors::default()
+              .allowed_origin("https://www.rust-lang.org/")
+              .allowed_origin_fn(|origin, _req_head| {
+                  origin.as_bytes().ends_with(b".rust-lang.org")
+              })
+              .allowed_methods(vec!["GET", "POST","PUT","DELETE"])
+              .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+              .allowed_header(http::header::CONTENT_TYPE)
+              .max_age(3600);
 
         App::new()
+        .wrap(cors)
         .data(AppState{models_container})
         .service(controller::plants)
         .service(controller::search)
