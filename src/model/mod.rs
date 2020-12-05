@@ -1,4 +1,4 @@
-use mongodb::{Collection, error::Error, results::InsertOneResult};
+use mongodb::{Collection, error::Error, options::FindOneAndUpdateOptions, results::InsertOneResult};
 use bson::{Document, doc, oid::ObjectId};
 
 #[derive(Debug,Clone)]
@@ -34,7 +34,7 @@ impl UserModel {
                             "username":username,
                             "email":email,
                             "password":password,
-                            "favorites":[]
+                            "favourites":[]
                     },None).unwrap()
         )
 
@@ -64,7 +64,7 @@ impl UserModel {
               "username":username,
               "email":email
           }  
-        },None).unwrap()
+        }, None).unwrap()
 
     )
     }
@@ -93,7 +93,7 @@ impl UserModel {
             "_id":ObjectId::with_string(user_id).unwrap()
         },doc!{
           "$push":{
-              "favorites":post_id
+              "favourites":post_id
           }  
         },None).unwrap()
     )
@@ -109,7 +109,7 @@ impl UserModel {
             "_id":ObjectId::with_string(user_id).unwrap()
         },doc!{
             "$pull":{
-                "favorites":post_id
+                "favourites":post_id
             }
         },None).unwrap()
     )
