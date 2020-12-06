@@ -1,6 +1,6 @@
 mod controller;
 mod model;
-use actix_web::{App,HttpServer};
+use actix_web::{App,HttpServer,http::header};
 use actix_cors::Cors;
 use model::{UserModel};
 use mongodb::{options::ClientOptions, Client};
@@ -21,6 +21,7 @@ pub struct AppState{
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+  
     const DB:&str="users";
     let client_options = ClientOptions::parse("mongodb://localhost:27017").unwrap();
     let client = Client::with_options(client_options).unwrap();
@@ -32,15 +33,15 @@ async fn main() -> std::io::Result<()> {
             
             UserModel::new(user_collection.clone()) 
         );
-        let cors = Cors::default()
-              .allowed_origin("https://www.rust-lang.org/")
-              .allowed_origin_fn(|origin, _req_head| {
-                  origin.as_bytes().ends_with(b".rust-lang.org")
-              })
-              .allowed_methods(vec!["GET", "POST","PUT","DELETE"])
-              .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
-              .allowed_header(http::header::CONTENT_TYPE)
-              .max_age(3600);
+        let cors = Cors::default().supports_credentials();
+        // .allowed_origin("http://915ebbc36c0b.ngrok.io")
+        // .allowed_origin("http://localhost:8080")
+        // .allowed_methods(vec!["GET", "POST","PUT","DELETE"])
+        // .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT])
+        // .allowed_header(header::CONTENT_TYPE)
+        // .allowed_header(header::CONTENT_TYPE)
+        // .expose_headers(&[header::CONTENT_DISPOSITION])
+        // .max_age(3600);
 
         App::new()
         .wrap(cors)
