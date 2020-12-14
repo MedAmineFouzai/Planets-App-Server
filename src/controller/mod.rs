@@ -1,4 +1,4 @@
-use actix_web::{HttpRequest,HttpResponse, Responder, get, post,delete,put, web::Json, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, http::StatusCode, delete, get, options, post, put, web::Json, web};
 use bson::Bson;
 use serde::{Deserialize,Serialize};
 extern crate  jsonwebtoken as jwt;
@@ -71,7 +71,6 @@ pub struct Favorite {
  
 }
 
-
 #[get("/plants")]
 pub async fn plants()-> impl Responder{
     
@@ -138,9 +137,12 @@ user_data:Json<UserLoginModel>
         match app_data.models_container.user.login(&user_data.email, &user_data.password).await{
             Ok(user)=>{
                 let  data=user.unwrap();
-                let payload = UserPayload{
+                let payload = UserObject{
+                    id:data.get_object_id("_id").unwrap().to_string(),
                     username:data.get_str("username").unwrap().to_string(),
-                    email:user_data.email.to_owned(),
+                    email:data.get_str("email").unwrap().to_string(),
+                    token:String::from(""),
+                    favourites:data.get_array("favourites").unwrap().to_vec()
                 };
                 
             let token=encode(&Header::default(),&payload,&EncodingKey::from_secret("secret".as_ref())).unwrap();
@@ -160,7 +162,10 @@ user_data:Json<UserLoginModel>
         }
 }
 
-
+// #[options("/signup")]
+// pub async fn gurd()->impl Responder{
+//     HttpResponse::new(StatusCode::OK())
+// }
 
 #[post("/signup")]
 pub async fn signup(
@@ -173,9 +178,12 @@ pub async fn signup(
               match app_data.models_container.user.login(&user_data.email, &user_data.password).await{
                   Ok(user)=>{
                     let data=user.unwrap();
-                    let payload = UserPayload{
+                    let payload = UserObject{
+                        id:data.get_object_id("_id").unwrap().to_string(),
                         username:data.get_str("username").unwrap().to_string(),
-                        email:user_data.email.to_owned(),
+                        email:data.get_str("email").unwrap().to_string(),
+                        token:String::from(""),
+                        favourites:data.get_array("favourites").unwrap().to_vec()
                     };
                      let token=encode(&Header::default(),&payload,&EncodingKey::from_secret("secret".as_ref())).unwrap();
 
@@ -393,7 +401,7 @@ pub async fn add_favorite(
                         Ok(user)=>{
                             let data =user.unwrap();
                             match app_data.models_container.user.add_favorite(&user_data.id, &user_data.post_id).await{
-                                Ok(user)=>{
+                                Ok(_user)=>{
                                     let user=app_data.models_container.user.verfiy_user(&data.get_str("username").unwrap().to_string(),&data.get_str("email").unwrap().to_string()).await.ok().unwrap();
                                     let data=user.unwrap();
                                     HttpResponse::Ok().json(UserObject{
@@ -448,7 +456,7 @@ pub async fn delete_favorite(
                         Ok(user)=>{
                             let data =user.unwrap();
                             match app_data.models_container.user.delete_favorite(&user_data.id, &user_data.post_id).await{
-                                Ok(user)=>{
+                                Ok(_user)=>{
                                     let user=app_data.models_container.user.verfiy_user(&data.get_str("username").unwrap().to_string(),&data.get_str("email").unwrap().to_string()).await.ok().unwrap();
                                     let data=user.unwrap();
                                     HttpResponse::Ok().json(UserObject{

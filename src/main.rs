@@ -1,6 +1,6 @@
 mod controller;
 mod model;
-use actix_web::{App,HttpServer,http::header};
+use actix_web::{App,HttpServer};
 use actix_cors::Cors;
 use model::{UserModel};
 use mongodb::{options::ClientOptions, Client};
@@ -33,15 +33,13 @@ async fn main() -> std::io::Result<()> {
             
             UserModel::new(user_collection.clone()) 
         );
-        let cors = Cors::default().supports_credentials();
-        // .allowed_origin("http://915ebbc36c0b.ngrok.io")
-        // .allowed_origin("http://localhost:8080")
-        // .allowed_methods(vec!["GET", "POST","PUT","DELETE"])
-        // .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT])
-        // .allowed_header(header::CONTENT_TYPE)
-        // .allowed_header(header::CONTENT_TYPE)
-        // .expose_headers(&[header::CONTENT_DISPOSITION])
-        // .max_age(3600);
+
+        let cors=Cors::default()
+        .allow_any_origin()
+        .allow_any_header()
+        .allow_any_method()
+        .supports_credentials();
+
 
         App::new()
         .wrap(cors)

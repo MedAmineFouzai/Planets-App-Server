@@ -1,4 +1,4 @@
-use mongodb::{Collection, error::Error, options::FindOneAndUpdateOptions, results::InsertOneResult};
+use mongodb::{Collection, error::Error, results::InsertOneResult};
 use bson::{Document, doc, oid::ObjectId};
 
 #[derive(Debug,Clone)]
